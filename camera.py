@@ -84,8 +84,14 @@ class VideoCamera:
         with self.lock:
             return None if self.frame is None else self.frame.copy()
 
-# initialize two camera handlers (two columns)
-cameras = {
-    1: VideoCamera(),
-    2: VideoCamera()
-}
+    def get_frame_bmp(self):
+        # return BMP bytes of current frame, or None
+        with self.lock:
+            f = None if self.frame is None else self.frame.copy()
+        if f is None:
+            return None
+        # encode as BMP
+        ret, bmp = cv2.imencode('.bmp', f)
+        if not ret:
+            return None
+        return bmp.tobytes()

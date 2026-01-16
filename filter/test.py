@@ -34,6 +34,6 @@
 # cv2.imwrite('output_bilateral.bmp', bilateral)
 
 import cv2
-img = cv2.imread('input2.bmp', 0)
+img = cv2.imread('/filter/input/input2.bmp', 0)
 _, binary = cv2.threshold(img, 128, 255, cv2.THRESH_BINARY)
-cv2.imwrite('output_binary.bmp', binary)
+cv2.imwrite('/filter/output/output_binary.bmp', binary)
