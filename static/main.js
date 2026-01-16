@@ -1,24 +1,20 @@
 async function setSource(cam_id){
   const vid = document.getElementById(`video-${cam_id}`);
   const src = document.getElementById(`src-${cam_id}`).value.trim();
-  
   if(!src){
     alert("Nhập IP/URL camera trước khi Connect (hoặc bấm Stop để dừng).");
     return;
   }
-  
   const res = await fetch('/set_source', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({cam_id: cam_id, source: src})
   });
-  
   const j = await res.json();
   if(!j.ok){
     alert("Lỗi khi connect: " + (j.error||'unknown'));
     return;
   }
-  
   // reload the img to pick new stream (add cache buster)
   vid.src = `/video_feed/${cam_id}?t=${Date.now()}`;
 }
@@ -29,53 +25,37 @@ async function stopSource(cam_id){
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({cam_id: cam_id, source: ''})
   });
-  
   const j = await res.json();
   if(!j.ok){
     alert("Lỗi khi stop: " + (j.error||'unknown'));
     return;
   }
-  
   const vid = document.getElementById(`video-${cam_id}`);
-  // --- FIX LỖI: Sửa setPlaceholder thành setPlaceholderCam ---
-  setPlaceholderCam(vid);
+  setPlaceholder(vid);
 }
 
 async function capture(cam_id){
   // disable button quickly to avoid double click
-  const btn = event.currentTarget; // Lấy nút đang được bấm
+  const btn = event.currentTarget;
   btn.disabled = true;
-  
   try{
-    // --- MỚI: Lấy giá trị Filter ---
-    const filterSelect = document.getElementById('filter-select');
-    // Nếu không tìm thấy thẻ select (hoặc chưa chọn), mặc định là 'all'
-    const stepValue = filterSelect ? filterSelect.value : 'all';
-
     const res = await fetch('/capture', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      // --- MỚI: Gửi kèm step ---
-      body: JSON.stringify({
-          cam_id: cam_id, 
-          step: stepValue 
-      })
+      body: JSON.stringify({cam_id: cam_id})
     });
-    
     const j = await res.json();
     if(!j.ok){
       alert("Capture failed: " + (j.error || 'unknown'));
       return;
     }
-    
     // set captured and processed images
     document.getElementById(`captured-${cam_id}`).src = j.image;
     document.getElementById(`fragment-${cam_id}`).src = j.processed;
 
     const timeBox = document.getElementById(`proc-time-${cam_id}`);
     if(timeBox && typeof j.process_time_ms === 'number'){
-      // Hiển thị thêm tên filter đã dùng
-      timeBox.textContent = `Process time: ${j.process_time_ms.toFixed(2)} ms (${j.step || stepValue})`;
+      timeBox.textContent = `Process time: ${j.process_time_ms.toFixed(2)} ms`;
     }
   }catch(err){
     alert("Error: " + err);

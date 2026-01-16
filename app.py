@@ -1,4 +1,3 @@
-import os  # <--- Added to enable environment variable settings
 from flask import Flask, render_template, Response, request, jsonify
 import cv2
 import threading
@@ -7,13 +6,8 @@ import base64
 import numpy as np
 from process import ImageProcessor
 from camera import VideoCamera
-
-# --- CRITICAL FIX: Force RTSP to use TCP ---
-# This prevents the "method SETUP failed: 500" error by stopping
-# OpenCV/FFmpeg from attempting UDP connections first.
-os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
-
 app = Flask(__name__)
+
 
 # initialize two camera handlers (two columns)
 cameras = {
@@ -59,15 +53,12 @@ def set_source():
     data = request.get_json()
     cam_id = int(data.get('cam_id'))
     source = data.get('source', '').strip()
-    
     if cam_id not in cameras:
         return jsonify({'ok': False, 'error': 'invalid cam_id'}), 400
-    
     if source == '':
         # stop camera if empty
         cameras[cam_id].stop()
         return jsonify({'ok': True, 'msg': 'stopped'})
-    
     try:
         cameras[cam_id].start(source)
         return jsonify({'ok': True})
@@ -93,6 +84,7 @@ def capture():
     """
     data = request.get_json()
     cam_id = int(data.get('cam_id'))
+    # step = data.get('step', 'all')  # Default to 'all' if not specified
     
     if cam_id not in cameras:
         return jsonify({'ok': False, 'error': 'invalid cam_id'}), 400
@@ -128,7 +120,7 @@ def capture():
             'image': data_uri, 
             'processed': processed_uri, 
             'process_time_ms': round(process_time_ms, 2),
-            'results': results, 
+            'results': results,  # Additional processing results
             'step': "all"
         })
     except Exception as e:
@@ -136,4 +128,4 @@ def capture():
 
 if __name__ == '__main__':
     # debug mode off in production
-    app.run(host='0.0.0.0', port=5006, threaded=True)
+    app.run(host='0.0.0.0', port=5000, threaded=True)
