@@ -175,7 +175,12 @@ class ImageProcessor:
         # TODO: Implement HSV conversion
         # Sinh viên cần: Sử dụng cv2.cvtColor với cv2.COLOR_BGR2HSV
         pass
+        if bgr_img == None:
+            return None
         
+        hsv_img = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2HSV)
+        return hsv_img
+
     def segment_by_color(self, bgr_img, lower_bound, upper_bound):
         """
         Segment image by color thresholding in HSV space
@@ -193,6 +198,11 @@ class ImageProcessor:
         # 1. Chuyển sang HSV
         # 2. Sử dụng cv2.inRange để tạo mask
         pass
+        if bgr_img == None:
+            return None
+        hsv_img = self.convert_to_hsv(bgr_img)
+        processed_img = cv2.inRange(hsv_img, lower_bound, upper_bound)
+        return processed_img
     
     def apply_morphology(self, binary_img, operation='close', kernel_size=(5, 5)):
         """
@@ -211,7 +221,9 @@ class ImageProcessor:
         # 1. Tạo kernel với cv2.getStructuringElement
         # 2. Áp dụng phép toán tương ứng: cv2.erode, cv2.dilate, cv2.morphologyEx
         pass
-    
+        if binary_img == None:
+            return None
+        
     # =============================================================================
     # STEP 4: HOMOGRAPHY AND CALIBRATION (Week 5)
     # Topic: Camera & Calibration
@@ -585,7 +597,7 @@ class ImageProcessor:
     # Topic: All Course Concepts
     # =============================================================================
     
-    def process_frame(self, bgr_img):
+    def process_frame(self, bgr_img, step = all):
         """
         Complete processing pipeline - integrates all steps
         
@@ -619,10 +631,12 @@ class ImageProcessor:
         if img is None:
             print("Read image failed")
             return None
-
-        gray = self.convert_to_grayscale(img)  ## Step 2: Convert to Grayscale
-        #processed_img = self.apply_gaussian_filter(gray) ## Step 3: Apply Gaussian Filter
-        processed_img = self.detect_edges_canny(gray)
+        gray = self.convert_to_grayscale(img)
+        if step == 'gray':
+            processed_img = gray
+          ## Step 2: Convert to Grayscale
+        gauss_img = self.apply_gaussian_filter(gray) ## Step 3: Apply Gaussian Filter
+        processed_img = self.detect_edges_canny(gauss_img)
         #################################################################################
         
         process_time_ms = (time.perf_counter() - start_time) * 1000
@@ -646,3 +660,4 @@ class ImageProcessor:
         # 3. Vẽ optical flow vectors
         # 4. Highlight detected features
         pass
+        

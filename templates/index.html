@@ -61,6 +61,19 @@
       </div>
     </div>
   </div>
+  <div class="control-group">
+    <label for="filter-select">Chọn bộ lọc:</label>
+    <select id="filter-select" class="form-control">
+        <option value="original">Ảnh gốc (Original)</option>
+        <option value="gray">Grayscale (Trắng đen)</option>
+        <option value="hsv">HSV (Hệ màu)</option>
+        <option value="edges">Canny Edges (Viền)</option>
+        <option value="threshold">Binary Threshold (Nhị phân)</option>
+        <option value="all">Full Pipeline (Xử lý tất cả)</option>
+    </select>
+</div>
+
+<button onclick="captureImage(1)">Chụp Camera 1</button>
 
   <script src="/static/main.js"></script>
 </body>
