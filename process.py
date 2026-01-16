@@ -128,6 +128,10 @@ class ImageProcessor:
         # TODO: Implement Canny edge detection
         # Sinh viên cần: Sử dụng cv2.Canny
         pass
+        if img is None:
+            return None
+        edge_img = cv2.Canny(img, threshold1, threshold2)
+        return edge_img
     
     def preprocess_image(self, bgr_img):
         """
@@ -147,6 +151,11 @@ class ImageProcessor:
         # 3. Gọi detect_edges_canny()
         # 4. Trả về dictionary chứa tất cả kết quả trung gian
         pass
+        gray = self.convert_to_grayscale(bgr_img)
+        gaus = self.apply_gaussian_filter(bgr_img)
+        edg = self.detect_edges_canny(bgr_img)
+        dict = {'grayscale': gray, 'filtered': gaus, 'edges': edg}
+        return dict
     
     # =============================================================================
     # STEP 3: COLOR SPACE CONVERSION & SEGMENTATION (Week 4)
@@ -166,7 +175,7 @@ class ImageProcessor:
         # TODO: Implement HSV conversion
         # Sinh viên cần: Sử dụng cv2.cvtColor với cv2.COLOR_BGR2HSV
         pass
-    
+        
     def segment_by_color(self, bgr_img, lower_bound, upper_bound):
         """
         Segment image by color thresholding in HSV space
@@ -612,8 +621,8 @@ class ImageProcessor:
             return None
 
         gray = self.convert_to_grayscale(img)  ## Step 2: Convert to Grayscale
-        processed_img = self.apply_gaussian_filter(gray) ## Step 3: Apply Gaussian Filter
-        
+        #processed_img = self.apply_gaussian_filter(gray) ## Step 3: Apply Gaussian Filter
+        processed_img = self.detect_edges_canny(gray)
         #################################################################################
         
         process_time_ms = (time.perf_counter() - start_time) * 1000
