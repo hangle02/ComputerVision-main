@@ -5,7 +5,7 @@ import threading
 import time
 import base64
 import numpy as np
-from process import ImageProcessor
+from process2 import ImageProcessor
 from camera import VideoCamera
 
 # --- CRITICAL FIX: Force RTSP to use TCP ---
