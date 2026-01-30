@@ -6,6 +6,7 @@ import time
 import base64
 import numpy as np
 
+from process import ImageProcessor
 from camera import VideoCamera
 
 app = Flask(__name__)
