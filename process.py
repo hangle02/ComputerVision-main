@@ -90,9 +90,6 @@ class ImageProcessor:
     # =============================================================================
     # MAIN PROCESSING PIPELINE
     # =============================================================================
-    
-    # !!! THIS IS THE FUNCTION THAT CAUSED THE ERROR !!!
-    # It must accept the 'step' argument.
     def process_frame(self, frame, step='all'):
         if frame is None: return None, {}, 0
         
