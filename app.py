@@ -5,7 +5,10 @@ import threading
 import time
 import base64
 import numpy as np
-from process2 import ImageProcessor
+
+# --- QUAN TRỌNG: Import đúng tên file chứa class ImageProcessor ---
+# Hãy đảm bảo bạn đã lưu code class ImageProcessor vào file tên là 'process.py'
+from process import ImageProcessor 
 from camera import VideoCamera
 
 # --- CRITICAL FIX: Force RTSP to use TCP ---
@@ -78,21 +81,14 @@ def set_source():
 def capture():
     """
     Capture image from camera and process it
-    
     Payload: { cam_id: int, step: str (optional) }
-    
-    Step options:
-        - 'preprocess': Step 2 - Grayscale, Gaussian, Edge Detection
-        - 'segment': Step 3 - Color segmentation, Morphology
-        - 'calibrate': Step 4 - Calibration and perspective correction
-        - 'roi': Step 5 - Feature detection and ROI extraction
-        - 'motion': Step 6 - Motion detection
-        - 'track': Step 7 - Object tracking
-        - 'license_plate': Steps 8-9 - License plate detection & OCR
-        - 'all': Complete pipeline (default)
     """
     data = request.get_json()
     cam_id = int(data.get('cam_id'))
+    
+    # --- MỚI: Lấy tham số step từ giao diện gửi lên ---
+    # Nếu không có step, mặc định là 'all'
+    selected_step = data.get('step', 'all')
     
     if cam_id not in cameras:
         return jsonify({'ok': False, 'error': 'invalid cam_id'}), 400
@@ -113,7 +109,9 @@ def capture():
     # Process image using ImageProcessor
     try:
         processor = ImageProcessor()
-        processed, results, process_time_ms = processor.process_frame(frame)
+        
+        # --- MỚI: Truyền tham số step vào hàm xử lý ---
+        processed, results, process_time_ms = processor.process_frame(frame, step=selected_step)
         
         # Convert processed image to base64
         ret2, jpg2 = cv2.imencode('.jpg', processed, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
@@ -129,7 +127,7 @@ def capture():
             'processed': processed_uri, 
             'process_time_ms': round(process_time_ms, 2),
             'results': results, 
-            'step': "all"
+            'step': selected_step  # Trả về để xác nhận loại filter đã dùng
         })
     except Exception as e:
         return jsonify({'ok': False, 'error': f'Processing failed: {str(e)}'}), 500

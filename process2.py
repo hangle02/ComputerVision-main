@@ -108,10 +108,54 @@ class ImageProcessor:
         # Áp dụng Gaussian Blur
         filtered_img = cv2.GaussianBlur(img, kernel_size, sigma)
         return filtered_img
+    
+    def apply_median_blur(self, img, kernel_size=5):
+        """
+        Apply Median Blur (Effective for salt-and-pepper noise)
+        Args:
+            img: Input image
+            kernel_size: Size of the kernel (must be odd integer)
+        """
+
+        if img is None: return None
+        # Ensure kernel size is odd
+        k = kernel_size if kernel_size % 2 == 1 else kernel_size + 1
+        return cv2.medianBlur(img, k)
     # =============================================================================
     # STEP 2: IMAGE PREPROCESSING (Week 3)
     # Topic: Image Operations (Edge Detection, Convolution)
     # =============================================================================
+    def detect_edges_sobel(self, img):
+        if img is None: return None
+        
+        if len(img.shape) == 3:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            
+        sobelx_64f = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=3)
+        return cv2.convertScaleAbs(sobelx_64f)
+    
+    def detect_edges_laplacian(self, img, ):
+        Kx = np.array([[-1, 0, 1],
+               [-1, 0, 1],
+               [-1, 0, 1]])
+        Ky = np.array([[-1, -1, -1],
+               [ 0,  0,  0],
+               [ 1,  1,  1]])
+
+        def convolve(img, kernel):
+            m, n = kernel.shape
+            y, x = img.shape
+            out = np.zeros((y, x))
+            for i in range(1, y-1):
+                for j in range(1, x-1):
+                    window = img[i-1:i+2, j-1:j+2]
+                    out[i,j] = np.sum(window * kernel)
+            return out
+        Ix = convolve(img, Kx)
+        Iy = convolve(img, Ky)
+        G = np.sqrt(Ix**2 + Iy**2)
+        edges = (G > 40).astype(np.uint8) * 255 
+        return edges
 
     def detect_edges_canny(self, img, threshold1=50, threshold2=150):
         """
@@ -133,6 +177,18 @@ class ImageProcessor:
         edge_img = cv2.Canny(img, threshold1, threshold2)
         return edge_img
     
+    def apply_sharpening(self, img):
+        """
+        Sharpen image using a custom kernel convolution
+        """
+        if img is None: return None
+        
+        # Kernel: Center is positive, neighbors are negative
+        kernel = np.array([[0, -1, 0],
+                           [-1, 5, -1],
+                           [0, -1, 0]])
+        return cv2.filter2D(img, -1, kernel)
+
     def preprocess_image(self, bgr_img):
         """
         Complete preprocessing pipeline: grayscale + Gaussian + edge detection
@@ -204,26 +260,61 @@ class ImageProcessor:
         processed_img = cv2.inRange(hsv_img, lower_bound, upper_bound)
         return processed_img
     
+    # --- 7. Bilateral Filter ---
+    def apply_bilateral_filter(self, img, d=9, sigma_color=75, sigma_space=75):
+        """
+        Apply Bilateral Filter (Smooths texture while preserving edges)
+        """
+        # TODO: Implement Bilateral Filter
+        pass
+
+        if img is None: return None
+        return cv2.bilateralFilter(img, d, sigma_color, sigma_space)
+
+    # --- 8. Thresholding (Binary) ---
+    def apply_threshold(self, img, threshold_value=127):
+        """
+        Apply Binary Thresholding
+        Returns: Binary image (0 or 255)
+        """
+        # TODO: Convert to gray and apply threshold
+        pass
+
+        if img is None: return None
+        
+        # Thresholding requires grayscale input
+        gray_img = img
+        if len(img.shape) == 3:
+            gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            
+        _, binary = cv2.threshold(gray_img, threshold_value, 255, cv2.THRESH_BINARY)
+        return binary
+
+    # --- 9 & 10. Morphological Filtering (Erosion & Dilation) ---
     def apply_morphology(self, binary_img, operation='close', kernel_size=(5, 5)):
         """
-        Apply morphological operations (erosion/dilation)
-        
+        Apply morphological operations
         Args:
             binary_img: Input binary image
-            operation: 'erode', 'dilate', 'open', or 'close'
-            kernel_size: Size of structuring element
-            
-        Returns:
-            Image after morphological operation
+            operation: 'erode', 'dilate', 'open', 'close'
         """
-        # TODO: Implement morphological operations
-        # Sinh viên cần:
-        # 1. Tạo kernel với cv2.getStructuringElement
-        # 2. Áp dụng phép toán tương ứng: cv2.erode, cv2.dilate, cv2.morphologyEx
+        # TODO: Create kernel and apply morphology
         pass
-        if binary_img == None:
-            return None
+
+        if binary_img is None: return None
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, kernel_size)
+
+        if operation == 'erode':
+            return cv2.erode(binary_img, kernel, iterations=1)
+        elif operation == 'dilate':
+            return cv2.dilate(binary_img, kernel, iterations=1)
+        elif operation == 'open':
+            return cv2.morphologyEx(binary_img, cv2.MORPH_OPEN, kernel)
+        elif operation == 'close':
+            return cv2.morphologyEx(binary_img, cv2.MORPH_CLOSE, kernel)
         
+        return binary_img    
     # =============================================================================
     # STEP 4: HOMOGRAPHY AND CALIBRATION (Week 5)
     # Topic: Camera & Calibration
@@ -597,50 +688,58 @@ class ImageProcessor:
     # Topic: All Course Concepts
     # =============================================================================
     
-    def process_frame(self, bgr_img, step = all):
-        """
-        Complete processing pipeline - integrates all steps
+    def process_frame(self, frame, step='all'):
+        if frame is None: return None, {}, 0
         
-        Args:
-            bgr_img: Input image in BGR format (numpy array)
-            step: Which processing step to apply
-                  Options: 'preprocess', 'segment', 'motion', 'track', 
-                          'license_plate', 'all'
-            
-        Returns:
-            tuple: (Processed image, results dict, process time in ms)
-        """
-        if bgr_img is None:
-            raise ValueError("Input frame is None")
-        
-        start_time = time.perf_counter()
+        start_time = cv2.getTickCount()
         results = {}
-        processed_img = bgr_img.copy()
+        processed_img = frame.copy()
         
-        # TODO: Implement complete pipeline
-        # Sinh viên cần:
-        # 1. Dựa vào tham số 'step', gọi các phương thức tương ứng
-        # 2. Lưu kết quả vào results dict
-        # 3. Visualize kết quả lên processed_img
-        # 4. Trả về (processed_img, results, process_time_ms)
-        
-        ###################### WRITE YOUR PROCESS PIPELINE HERE #########################
-        step1_image = self.capture_and_save_image(bgr_img, "test_capture.bmp") ## Step 1: Capture and Save Image
-        if step1_image:
-            img = cv2.imread("CapturedImage/test_capture.bmp")
-        if img is None:
-            print("Read image failed")
-            return None
-        gray = self.convert_to_grayscale(img)
+        # --- Logic to switch filters based on 'step' ---
         if step == 'gray':
-            processed_img = gray
-          ## Step 2: Convert to Grayscale
-        gauss_img = self.apply_gaussian_filter(gray) ## Step 3: Apply Gaussian Filter
-        processed_img = self.detect_edges_canny(gauss_img)
-        #################################################################################
+            processed_img = self.convert_to_grayscale(frame)
+            
+        elif step == 'gaussian':
+            processed_img = self.apply_gaussian_blur(frame)
+            
+        elif step == 'median':
+            processed_img = self.apply_median_blur(frame)
+            
+        elif step == 'sobel':
+            processed_img = self.apply_sobel_x(frame)
+            
+        elif step == 'laplacian':
+            processed_img = self.apply_laplacian(frame)
+            
+        elif step == 'sharpen':
+            processed_img = self.apply_sharpening(frame)
+            
+        elif step == 'bilateral':
+            processed_img = self.apply_bilateral_filter(frame)
+            
+        elif step == 'threshold':
+            processed_img = self.apply_threshold(frame)
+            
+        elif step == 'erode':
+            # Erosion needs a binary image first
+            binary = self.apply_threshold(frame)
+            processed_img = self.apply_morphology(binary, operation='erode')
+            
+        elif step == 'dilate':
+            # Dilation needs a binary image first
+            binary = self.apply_threshold(frame)
+            processed_img = self.apply_morphology(binary, operation='dilate')
+            
+        elif step == 'all':
+            # Default behavior (e.g., just show original or a specific demo)
+            results['info'] = "No specific filter selected"
+            pass
+
+        # Calculate processing time (ms)
+        end_time = cv2.getTickCount()
+        time_ms = (end_time - start_time) * 1000 / cv2.getTickFrequency()
         
-        process_time_ms = (time.perf_counter() - start_time) * 1000
-        return processed_img, results, process_time_ms
+        return processed_img, results, time_ms
     
     def visualize_results(self, bgr_img, results):
         """
