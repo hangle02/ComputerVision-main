@@ -6,19 +6,10 @@ import time
 import base64
 import numpy as np
 
-# --- QUAN TRỌNG: Import đúng tên file chứa class ImageProcessor ---
-# Hãy đảm bảo bạn đã lưu code class ImageProcessor vào file tên là 'process.py'
-from process import ImageProcessor 
 from camera import VideoCamera
-
-# --- CRITICAL FIX: Force RTSP to use TCP ---
-# This prevents the "method SETUP failed: 500" error by stopping
-# OpenCV/FFmpeg from attempting UDP connections first.
-os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
 
 app = Flask(__name__)
 
-# initialize two camera handlers (two columns)
 cameras = {
     1: VideoCamera(),
     2: VideoCamera()
@@ -86,8 +77,6 @@ def capture():
     data = request.get_json()
     cam_id = int(data.get('cam_id'))
     
-    # --- MỚI: Lấy tham số step từ giao diện gửi lên ---
-    # Nếu không có step, mặc định là 'all'
     selected_step = data.get('step', 'all')
     
     if cam_id not in cameras:
