@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 
-img = cv2.imread('lane.png')  # Change to your image path
+img = cv2.imread('test3.jpg')  # Change to your image path
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
 edges = cv2.Canny(gray, threshold1=100, threshold2=200)
@@ -54,11 +54,11 @@ plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
 plt.title('Detected Lines')
 plt.show()
 
-#plt.imshow(accumulator, cmap='hot')
-#plt.title('Hough Accumulator')
-#plt.xlabel('Theta')
-#plt.ylabel('Rho')
-#plt.show()
+# plt.imshow(accumulator, cmap='hot')
+# plt.title('Hough Accumulator')
+# plt.xlabel('Theta')
+# plt.ylabel('Rho')
+# plt.show()
 
 
 
