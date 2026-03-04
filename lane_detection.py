@@ -72,8 +72,8 @@ def detect_full_road(img):
         
         mid_x = int((x_left_edge + x_right_edge) / 2)
         
-        cv2.circle(img, (mid_x, target_y), 10, (0, 0, 255), -1)
-        cv2.putText(img, "Full Road Center", (mid_x - 80, target_y - 20), 
+        cv2.circle(img, (mid_x, target_y), 10, (0, 0, 255))
+        cv2.putText(img, "Road Center", (mid_x - 80, target_y - 20), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
     return img
@@ -94,17 +94,17 @@ def process_folder(input_folder, output_folder):
     image_paths = [p for p in image_paths if p.lower().endswith(valid_extensions)]
 
     if len(image_paths) == 0:
-        print(f"Không tìm thấy ảnh nào trong thư mục '{input_folder}'")
+        print(f"The '{input_folder}' is empty")
         return
 
-    print(f"Bắt đầu xử lý {len(image_paths)} ảnh...")
+    print(f"Processing {len(image_paths)}")
 
     # Duyệt qua từng ảnh và xử lý
     for i, img_path in enumerate(image_paths):
         # Đọc ảnh
         img = cv2.imread(img_path)
         if img is None:
-            print(f"Lỗi đọc ảnh: {img_path}")
+            print(f"Image reading error: {img_path}")
             continue
             
         # Gọi hàm xử lý
@@ -116,9 +116,9 @@ def process_folder(input_folder, output_folder):
         
         # Lưu ảnh
         cv2.imwrite(output_path, processed_img)
-        print(f"[{i+1}/{len(image_paths)}] Đã lưu: {output_path}")
+        print(f"[{i+1}/{len(image_paths)}] Saved: {output_path}")
 
-    print("Hoàn tất! Hãy kiểm tra thư mục đầu ra.")
+    print("Complete! Check the output_images folder")
 
 # ==========================================
 # CHẠY CHƯƠNG TRÌNH
@@ -130,8 +130,4 @@ if __name__ == '__main__':
     OUTPUT_DIR = 'output_images'
     
     # Tạo sẵn thư mục input nếu bạn chưa tạo để tránh báo lỗi
-    if not os.path.exists(INPUT_DIR):
-        os.makedirs(INPUT_DIR)
-        print(f"Đã tạo thư mục '{INPUT_DIR}'. Hãy copy ảnh vào đây và chạy lại code.")
-    else:
-        process_folder(INPUT_DIR, OUTPUT_DIR)
+    process_folder(INPUT_DIR, OUTPUT_DIR)
