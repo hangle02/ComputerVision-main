@@ -2,8 +2,8 @@ import cv2
 import numpy as np
 
 # Load images
-img_left = cv2.imread('left.jpg')
-img_right = cv2.imread('right.jpg')
+img_left = cv2.imread(r'C:\ComputerVision-main\Week5\left.jpg')
+img_right = cv2.imread(r'C:\ComputerVision-main\Week5\right.jpg')
 if img_left is None or img_right is None:
     print("Failed to load images.")
     exit()

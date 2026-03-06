@@ -13,7 +13,7 @@ objpoints = []  # 3d point in real world
 imgpoints = []  # 2d points in image plane
 
 # You could add more images here using glob
-images = ['calib_radial_4.jpg']  # or: images = glob.glob('*.jpg')
+images = [r'C:\ComputerVision-main\Week5\6ca9d13083d20d8c54c3.jpg']  # or: images = glob.glob('*.jpg')
 
 for fname in images:
     img = cv2.imread(fname)

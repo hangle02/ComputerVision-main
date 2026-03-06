@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 # Load input image
-img = cv2.imread('blackboard.jpg')
+img = cv2.imread(r'C:\ComputerVision-main\Week5\blackboard.jpg')
 
 # List to store points clicked by the user
 srcPoints = []
@@ -69,12 +69,11 @@ dstPoints = np.array([
     [0, 0],
     [width - 1, 0],
     [width - 1, height - 1],
-    [0, height - 1]
-], dtype="float32")
+    [0, height - 1]], dtype="float32")
 
 # Find the homography matrix
-#H, mask = cv2.findHomography(srcPoints, dstPoints, cv2.RANSAC)
-H = compute_homography(srcPoints, dstPoints)
+H, mask = cv2.findHomography(srcPoints, dstPoints, cv2.RANSAC)
+#H = compute_homography(srcPoints, dstPoints)
 
 
 print("Homography Matrix (H):\n", H)

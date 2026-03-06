@@ -2,8 +2,8 @@ import cv2
 import numpy as np
 
 # Load images
-big_image = cv2.imread("big.jpg")
-small_image = cv2.imread("small.jpg")
+big_image = cv2.imread(r'C:\ComputerVision-main\Week5\blackboard.jpg')
+small_image = cv2.imread(r"C:\ComputerVision-main\Week5\small.jpg")
 if big_image is None or small_image is None:
     print("Error loading images. Ensure 'big.jpg' and 'small.jpg' exist.")
     exit()
