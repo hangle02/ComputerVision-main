@@ -36,8 +36,8 @@ def horn_schunck(img1, img2, alpha=1.0, num_iter=100):
     return u, v
 
 # Read and prepare images
-img1 = imageio.imread('motion1.png')
-img2 = imageio.imread('motion2.png')
+img1 = imageio.imread('motion1.jpg')
+img2 = imageio.imread('motion2.jpg')
 
 if img1.ndim == 3:  # Convert to grayscale if needed
     img1 = np.dot(img1[...,:3], [0.299, 0.587, 0.114])

@@ -42,8 +42,8 @@ def lucas_kanade_optical_flow(img1, img2, window_size=5):
     return u, v
 
 #read inputs
-img1 = imageio.imread('motion1.png')
-img2 = imageio.imread('motion2.png')
+img1 = imageio.imread('motion1.jpg')
+img2 = imageio.imread('motion2.jpg')
 if img1.ndim == 3:
     img1 = np.dot(img1[...,:3], [0.299, 0.587, 0.114])
 if img2.ndim == 3:

@@ -2,8 +2,8 @@ import cv2
 import numpy as np
 
 # Load images (make sure they are the same size!)
-img1 = cv2.imread('motion1.png')
-img2 = cv2.imread('motion2.png')
+img1 = cv2.imread('motion1.jpg')
+img2 = cv2.imread('motion2.jpg')
 if img1 is None or img2 is None:
     print("Cannot load images.")
     exit(1)
