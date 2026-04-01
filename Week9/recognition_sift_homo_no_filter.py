@@ -5,7 +5,7 @@ import numpy as np
 sift = cv2.SIFT_create()
 
 # Load template image in grayscale
-template = cv2.imread('template.png', cv2.IMREAD_GRAYSCALE)
+template = cv2.imread(r'Week9/template.png', cv2.IMREAD_GRAYSCALE)
 if template is None:
     print("Cannot load template image!")
     exit()

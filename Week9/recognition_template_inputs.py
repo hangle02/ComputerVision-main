@@ -2,11 +2,11 @@ import cv2
 
 # List of template filenames
 template_files = [
-    "template1.png",
-    "template2.png",
-    "template3.png",
-    "template4.png",
-    "template5.png"
+    r"Week9\template1.png",
+    r"Week9\template2.png",
+    r"Week9\template3.png",
+    r"Week9\template4.png",
+    r"Week9\template5.png"
 ]
 
 # Load and compute SIFT keypoints/descriptors for each template
@@ -21,7 +21,7 @@ for filename in template_files:
     templates.append({"name": filename, "image": img, "kp": kp, "des": des})
 
 # Load the test image
-test_img = cv2.imread("template.png", cv2.IMREAD_GRAYSCALE)
+test_img = cv2.imread(r"Week9\template.png", cv2.IMREAD_GRAYSCALE)
 if test_img is None:
     print("Cannot load template")
     exit()
