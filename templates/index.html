@@ -2,99 +2,94 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Assignment Filters Demo</title>
+  <title>SmartDoc Scanner - CV & Linear Algebra Project</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="/static/style.css">
+  <style>
+    /* Thêm một chút CSS inline cho đẹp và rõ ràng báo cáo */
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; color: #333; }
+    h1 { text-align: center; color: #2c3e50; }
+    h2 { text-align: center; color: #7f8c8d; font-size: 1.2em; font-weight: 400; margin-bottom: 30px; }
+    
+    .matrix-box {
+      background: #2c3e50;
+      color: #00ff00;
+      font-family: monospace;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 15px;
+      display: none; /* Ẩn đi khi chưa có data */
+      white-space: pre-wrap;
+      font-size: 14px;
+    }
+    
+    .step-controls {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .step-btn {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      background-color: #3498db;
+      color: white;
+      transition: 0.3s;
+    }
+    
+    .step-btn:hover { background-color: #2980b9; }
+    .step-btn.active { background-color: #e74c3c; font-weight: bold; }
+  </style>
 </head>
 <body>
-  <h1>Computer Vision - Assignment 2</h1>
+  <h1>SmartDoc: Document Scanner</h1>
+  <h2>Computer Vision & Linear Algebra (Homography) Pipeline</h2>
   
-  <div class="container">
-    <div class="cam-col" id="col-1">
-      <div class="controls">
-        <label>IP/URL Camera 1</label>
-        <input type="text" id="src-1" placeholder="rtsp://..., http://..., hoặc số 0" />
-        <button onclick="setSource(1)">Connect</button>
-        <button onclick="stopSource(1)" class="stop">Stop</button>
+  <div class="container" style="display: flex; justify-content: center;">
+    <div class="cam-col" id="col-1" style="max-width: 800px; width: 100%;">
+      
+      <div class="controls" style="text-align: center; margin-bottom: 20px;">
+        <label style="font-weight: bold;">IP Camera Source:</label>
+        <input type="text" id="src-1" placeholder="http://192.168.x.x:8080/video" style="padding: 8px; width: 300px;"/>
+        <button onclick="setSource(1)" style="padding: 8px 15px;">Connect stream</button>
+        <button onclick="stopSource(1)" class="stop" style="padding: 8px 15px;">Stop stream</button>
       </div>
 
-      <div class="video-box">
-        <img id="video-1" src="" alt="camera1 stream"/>
-        <button class="capture-btn" aria-label="Capture" onclick="capture(1)">&#128247;</button>
+      <div class="video-box" style="text-align: center;">
+        <img id="video-1" src="" alt="Live Video Stream" style="width: 100%; max-width: 640px; border: 2px solid #ccc; border-radius: 8px;"/>
       </div>
 
-      <div class="image-box">
-        <h3>Original Capture</h3>
-        <img id="captured-1" src="" alt="captured" />
+      <div class="step-controls">
+        <button class="step-btn" onclick="captureAndProcess(1, 'edges')">1. Show Edges (Canny)</button>
+        <button class="step-btn" onclick="captureAndProcess(1, 'contours')">2. Find Document (Contours)</button>
+        <button class="step-btn" onclick="captureAndProcess(1, 'warp')">3. Perspective Warp (Homography)</button>
+        <button class="step-btn" onclick="captureAndProcess(1, 'all')" style="background-color: #27ae60;">4. Full Scan (Threshold)</button>
       </div>
 
-      <div class="fragment-box">
-        <h3>Filtered Result</h3>
-        <img id="fragment-1" src="" alt="fragment" />
-        <div class="process-meta" id="proc-time-1">Process time: --</div>
-      </div>
-    </div>
+      <div style="display: flex; gap: 20px; margin-top: 30px;">
+        <div class="image-box" style="flex: 1;">
+          <h3 style="border-bottom: 2px solid #3498db; padding-bottom: 5px;">Original Frame</h3>
+          <img id="captured-1" src="" alt="Captured Frame" style="width: 100%; border: 1px solid #ddd;" />
+        </div>
 
-    <div class="cam-col" id="col-2">
-      <div class="controls">
-        <label>IP/URL Camera 2</label>
-        <input type="text" id="src-2" placeholder="rtsp://..., http://..., hoặc số 1" />
-        <button onclick="setSource(2)">Connect</button>
-        <button onclick="stopSource(2)" class="stop">Stop</button>
+        <div class="fragment-box" style="flex: 1;">
+          <h3 style="border-bottom: 2px solid #e74c3c; padding-bottom: 5px;">Processed Result (<span id="current-step-label">None</span>)</h3>
+          <img id="fragment-1" src="" alt="Processed Output" style="width: 100%; border: 1px solid #ddd;" />
+          <div class="process-meta" id="proc-time-1" style="margin-top: 10px; font-weight: bold;">Process time: -- ms</div>
+          
+          <div id="matrix-display-1" class="matrix-box">
+            // Homography Matrix (3x3) will appear here
+          </div>
+        </div>
       </div>
-
-      <div class="video-box">
-        <img id="video-2" src="" alt="camera2 stream"/>
-        <button class="capture-btn" aria-label="Capture" onclick="capture(2)">&#128247;</button>
-      </div>
-
-      <div class="image-box">
-        <h3>Original Capture</h3>
-        <img id="captured-2" src="" alt="captured" />
-      </div>
-
-      <div class="fragment-box">
-        <h3>Filtered Result</h3>
-        <img id="fragment-2" src="" alt="fragment" />
-        <div class="process-meta" id="proc-time-2">Process time: --</div>
-      </div>
+      
     </div>
   </div>
-
-  <div class="control-group" style="margin-top: 20px;">
-    <label for="filter-select" style="font-weight: bold; font-size: 1.2em;">Filter:</label>
-    <br><br>
-    <select id="filter-select" class="form-control" style="padding: 10px; font-size: 16px;">
-        <option value="all">--- Choose filter ---</option>
-        
-        <optgroup label="Basic Conversion">
-            <option value="gray">1. Grayscale Conversion</option>
-        </optgroup>
-
-        <optgroup label="Smoothing / Blurring">
-            <option value="gaussian">2. Gaussian Blur</option>
-            <option value="median">3. Median Blur </option>
-            <option value="bilateral">7. Bilateral Filter </option>
-        </optgroup>
-
-        <optgroup label="Edge Detection & Sharpening">
-            <option value="sobel">4. Sobel X (X-Direction)</option>
-            <option value="laplacian">5. Laplacian</option>
-            <option value="sharpen">6. Sharpening </option>
-        </optgroup>
-
-        <optgroup label="Thresholding & Morphology">
-            <option value="threshold">8. Thresholding</option>
-            <option value="erode">9. Erosion</option>
-            <option value="dilate">10. Dilation</option>
-        </optgroup>
-    </select>
-  </div>
-
-  <br>
-  <button onclick="capture(1)" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">
-      Capture & Filtering (Camera 1)
-  </button>
 
   <script src="/static/main.js"></script>
 </body>
