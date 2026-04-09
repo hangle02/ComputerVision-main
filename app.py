@@ -122,6 +122,36 @@ def capture():
         })
     except Exception as e:
         return jsonify({'ok': False, 'error': f'Processing failed: {str(e)}'}), 500
+@app.route('/rotate', methods=['POST'])
+def rotate():
+    """
+    Nhận ảnh base64 từ frontend, xoay 90 độ cùng chiều kim đồng hồ và trả về.
+    """
+    data = request.get_json()
+    image_b64 = data.get('image')
+
+    if not image_b64:
+        return jsonify({'ok': False, 'error': 'No image provided'}), 400
+
+    try:
+        # Tách phần header 'data:image/jpeg;base64,' ra khỏi chuỗi
+        encoded_data = image_b64.split(',')[1]
+        
+        # Decode base64 thành ma trận ảnh OpenCV
+        nparr = np.frombuffer(base64.b64decode(encoded_data), np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        # Thực hiện xoay 90 độ cùng chiều kim đồng hồ
+        rotated_img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+
+        # Encode ngược lại thành base64
+        ret, buffer = cv2.imencode('.jpg', rotated_img, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+        new_b64 = base64.b64encode(buffer).decode('utf-8')
+        new_data_uri = 'data:image/jpeg;base64,' + new_b64
+
+        return jsonify({'ok': True, 'image': new_data_uri})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
     # Chạy Server Flask ở port 5006

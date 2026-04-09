@@ -83,3 +83,43 @@ function captureAndProcess(camId, stepName) {
         console.error(err);
     });
 }
+// Hàm gọi API xoay ảnh
+function rotateImage(camId) {
+    const imgElement = document.getElementById(`fragment-${camId}`);
+    const currentBase64 = imgElement.src;
+
+    // Kiểm tra xem đã có ảnh chưa (tránh xoay khi màn hình trống)
+    if (!currentBase64 || !currentBase64.startsWith('data:image')) {
+        alert("Please capture an image first!");
+        return;
+    }
+
+    // Hiển thị trạng thái đang xoay
+    const originalTimeText = document.getElementById(`proc-time-${camId}`).innerText;
+    document.getElementById(`proc-time-${camId}`).innerText = "Rotating...";
+
+    fetch('/rotate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: currentBase64 })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            // Thay thế ảnh cũ bằng ảnh đã xoay
+            imgElement.src = data.image;
+            document.getElementById(`proc-time-${camId}`).innerText = "Rotated successfully!";
+            
+            // Trả lại text thời gian sau 2 giây
+            setTimeout(() => {
+                document.getElementById(`proc-time-${camId}`).innerText = originalTimeText;
+            }, 2000);
+        } else {
+            alert('Error rotating image: ' + data.error);
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert("Network error while rotating.");
+    });
+}
