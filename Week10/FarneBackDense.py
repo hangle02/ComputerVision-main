@@ -1,6 +1,6 @@
 import cv2
 
-cap = cv2.VideoCapture('input.mp4')
+cap = cv2.VideoCapture('C:\\ComputerVision-main\\Week10\\input.mp4')
 _, prev = cap.read()
 prev_gray = cv2.cvtColor(prev, cv2.COLOR_BGR2GRAY)
 

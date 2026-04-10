@@ -1,8 +1,8 @@
 import cv2
 import numpy as np
+from collections import deque
 
 # ---- Minimal SORT tracker ---- #
-from collections import deque
 class Track:
     def __init__(self, id, bbox):
         self.id = id
@@ -33,7 +33,6 @@ class SimpleTracker:
 
     def update(self, detections):
         assigned_detections = []
-        # Associate detections with existing tracks
         for track in self.tracks:
             best_iou = 0
             best_det = None
@@ -51,27 +50,26 @@ class SimpleTracker:
             else:
                 track.no_losses += 1
 
-        # Remove lost tracks
         self.tracks = [t for t in self.tracks if t.no_losses <= self.max_no_losses]
 
-        # Add new tracks for unassigned detections
         for i, det in enumerate(detections):
             if i not in assigned_detections:
                 self.tracks.append(Track(self.next_id, det))
                 self.next_id += 1
-
         return self.tracks
 
 # ---- Load MobileNet-SSD ---- #
-net = cv2.dnn.readNetFromCaffe(r'C:\\ComputerVision-main\\Week10\\MobileNetSSD_deploy.prototxt.txt',
-                               r'C:\\ComputerVision-main\\Week10\\MobileNetSSD_deploy.caffemodel')
+# Lưu ý: Bạn nên để file trong cùng thư mục để tránh lỗi đường dẫn tuyệt đối
+prototxt = r'C:\\ComputerVision-main\\Week10\\MobileNetSSD_deploy.prototxt.txt'
+model = r'C:\\ComputerVision-main\\Week10\\MobileNetSSD_deploy.caffemodel'
+net = cv2.dnn.readNetFromCaffe(prototxt, model)
+
 CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
            "bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
            "dog", "horse", "motorbike", "person", "pottedplant", "sheep",
            "sofa", "train", "tvmonitor"]
 
-cap = cv2.VideoCapture(0)  # or 'input.mp4'
-
+cap = cv2.VideoCapture(0)
 tracker = SimpleTracker()
 
 while True:
@@ -80,8 +78,7 @@ while True:
         break
 
     # Detect People
-    blob = cv2.dnn.blobFromImage(cv2.resize(frame, (300, 300)), 0.007843,
-                                 (300, 300), 127.5)
+    blob = cv2.dnn.blobFromImage(cv2.resize(frame, (300, 300)), 0.007843, (300, 300), 127.5)
     net.setInput(blob)
     detections = net.forward()
 
@@ -97,15 +94,26 @@ while True:
     # Update Tracker
     tracks = tracker.update(boxes)
 
-    # Draw tracked persons and IDs
+    # --- PHẦN ĐẾM NGƯỜI ---
+    current_count = len(tracks) # Số người đang có trong khung hình
+    total_count = tracker.next_id # Tổng số người đã từng đi qua (dựa trên ID lớn nhất)
+
+    # Vẽ bảng thông tin đếm người ở góc trái
+    cv2.rectangle(frame, (10, 10), (250, 80), (0, 0, 0), -1) # Nền đen cho chữ dễ đọc
+    cv2.putText(frame, f'Current: {current_count}', (20, 40), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(frame, f'Total: {total_count}', (20, 70), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+
+    # Vẽ bounding box và ID cho từng người
     for track in tracks:
         x1, y1, x2, y2 = track.bbox
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
         cv2.putText(frame, f'ID {track.id}', (x1, y1 - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
-    cv2.imshow('Person Detection & Tracking', frame)
-    if cv2.waitKey(1) & 0xFF == 27:
+    cv2.imshow('Person Counting & Tracking', frame)
+    if cv2.waitKey(1) & 0xFF == 27: # Nhấn ESC để thoát
         break
 
 cap.release()

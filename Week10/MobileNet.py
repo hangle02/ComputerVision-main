@@ -2,8 +2,8 @@ import cv2
 import numpy as np
 
 # Download the model files from: https://github.com/chuanqi305/MobileNet-SSD
-net = cv2.dnn.readNetFromCaffe('MobileNetSSD_deploy.prototxt.txt',
-                               'MobileNetSSD_deploy.caffemodel')
+net = cv2.dnn.readNetFromCaffe(r'C:\\ComputerVision-main\\Week10\\MobileNetSSD_deploy.prototxt.txt',
+                               r'C:\\ComputerVision-main\\Week10\\MobileNetSSD_deploy.caffemodel')
 CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
            "bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
            "dog", "horse", "motorbike", "person", "pottedplant", "sheep",

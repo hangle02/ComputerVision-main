@@ -1,7 +1,7 @@
 import cv2
 
 fgbg = cv2.createBackgroundSubtractorMOG2()
-cap = cv2.VideoCapture('input.mp4')
+cap = cv2.VideoCapture('C:\\ComputerVision-main\\Week10\\input.mp4')
 
 while cap.isOpened():
     ret, frame = cap.read()
