@@ -29,7 +29,7 @@ class ImageProcessor:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
         # 1. Làm mờ cực mạnh (kernel 15x15) để nhòe chữ viết và vân gỗ
-        blurred = cv2.GaussianBlur(gray, (15, 15), 0)
+        blurred = cv2.GaussianBlur(gray, (21, 21), 0)
 
         # 2. Tách nền bằng Otsu Thresholding (Tự động tìm ngưỡng sáng tốt nhất)
         _, mask = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
@@ -144,8 +144,8 @@ class ImageProcessor:
             255, 
             cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
             cv2.THRESH_BINARY, 
-            51,   # Tăng thông số này lên 71, 91 nếu giấy vẫn còn dòng kẻ
-            15    # Tăng thông số này lên 20 nếu ảnh vẫn còn lốm đốm xám
+            49,   # Tăng thông số này lên 71, 91 nếu giấy vẫn còn dòng kẻ
+            9    # Tăng thông số này lên 20 nếu ảnh vẫn còn lốm đốm xám
         )
         
         # 4. Xóa nhiễu hạt (Salt & Pepper Noise)
