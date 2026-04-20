@@ -123,3 +123,49 @@ function rotateImage(camId) {
         alert("Network error while rotating.");
     });
 }
+let autoScanInterval = null;
+
+function toggleAutoScan(camId) {
+    const btn = document.getElementById(`auto-btn-${camId}`);
+    
+    if (autoScanInterval !== null) {
+        // Tắt Auto Scan
+        clearInterval(autoScanInterval);
+        autoScanInterval = null;
+        btn.innerText = "Auto Scan: OFF";
+        btn.style.backgroundColor = "#7f8c8d";
+        document.getElementById(`current-step-label`).innerText = "Auto Scan Disabled";
+    } else {
+        // Bật Auto Scan
+        btn.innerText = "Auto Scan: ON (Detecting...)";
+        btn.style.backgroundColor = "#e74c3c";
+        
+        // Cứ 300ms quét một lần
+        autoScanInterval = setInterval(() => {
+            fetch('/capture', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cam_id: camId, step: 'contours' })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.ok) {
+                    document.getElementById(`captured-${camId}`).src = data.image;
+                    document.getElementById(`fragment-${camId}`).src = data.processed;
+                    
+                    // Nếu server báo giấy đã nằm im (khung màu xanh)
+                    if (data.results.is_stable) {
+                        clearInterval(autoScanInterval); // Dừng lặp
+                        autoScanInterval = null;
+                        btn.innerText = "Auto Scan: OFF";
+                        btn.style.backgroundColor = "#7f8c8d";
+                        
+                        // Tự động gọi lệnh Full Scan (step 'all')
+                        captureAndProcess(camId, 'all');
+                    }
+                }
+            })
+            .catch(err => console.error("Auto scan error:", err));
+        }, 300);
+    }
+}
