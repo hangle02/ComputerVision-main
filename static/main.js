@@ -1,129 +1,154 @@
-async function setSource(cam_id){
-  const vid = document.getElementById(`video-${cam_id}`);
-  const src = document.getElementById(`src-${cam_id}`).value.trim();
-  
-  if(!src){
-    alert("Nhập IP/URL camera trước khi Connect (hoặc bấm Stop để dừng).");
-    return;
-  }
-  
-  const res = await fetch('/set_source', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({cam_id: cam_id, source: src})
-  });
-  
-  const j = await res.json();
-  if(!j.ok){
-    alert("Lỗi khi connect: " + (j.error||'unknown'));
-    return;
-  }
-  
-  // reload the img to pick new stream (add cache buster)
-  vid.src = `/video_feed/${cam_id}?t=${Date.now()}`;
+// --- ORIGINAL APP LOGIC ---
+function setSource(camId) {
+    const sourceUrl = document.getElementById(`src-${camId}`).value;
+    fetch('/set_source', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cam_id: camId, source: sourceUrl })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            document.getElementById(`video-${camId}`).src = `/video_feed/${camId}?t=${new Date().getTime()}`;
+        } else {
+            alert('Error connecting to camera: ' + data.error);
+        }
+    })
+    .catch(err => console.error('Connection error:', err));
 }
 
-async function stopSource(cam_id){
-  const res = await fetch('/set_source', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({cam_id: cam_id, source: ''})
-  });
-  
-  const j = await res.json();
-  if(!j.ok){
-    alert("Lỗi khi stop: " + (j.error||'unknown'));
-    return;
-  }
-  
-  const vid = document.getElementById(`video-${cam_id}`);
-  // --- FIX LỖI: Sửa setPlaceholder thành setPlaceholderCam ---
-  setPlaceholderCam(vid);
+function stopSource(camId) {
+    fetch('/set_source', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cam_id: camId, source: '' })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            revertToPlaceholders(camId);
+        }
+    }).catch(err => console.error(err));
 }
 
-async function capture(cam_id){
-  // disable button quickly to avoid double click
-  const btn = event.currentTarget; // Lấy nút đang được bấm
-  btn.disabled = true;
-  
-  try{
-    // --- MỚI: Lấy giá trị Filter ---
-    const filterSelect = document.getElementById('filter-select');
-    // Nếu không tìm thấy thẻ select (hoặc chưa chọn), mặc định là 'all'
-    const stepValue = filterSelect ? filterSelect.value : 'all';
-
-    const res = await fetch('/capture', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      // --- MỚI: Gửi kèm step ---
-      body: JSON.stringify({
-          cam_id: cam_id, 
-          step: stepValue 
-      })
+function captureAndProcess(camId, stepName) {
+    document.getElementById(`current-step-label`).innerText = stepName.toUpperCase();
+    fetch('/capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cam_id: camId, step: stepName })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            document.getElementById(`captured-${camId}`).src = data.image;
+            document.getElementById(`fragment-${camId}`).src = data.processed;
+            document.getElementById(`proc-time-${camId}`).innerText = `Process time: ${data.process_time_ms} ms`;
+            
+            const matrixBox = document.getElementById(`matrix-display-${camId}`);
+            if (data.results && data.results.homography_matrix) {
+                let matrixStr = "Homography Matrix H (3x3):\n\n";
+                data.results.homography_matrix.forEach(row => {
+                    matrixStr += "[ " + row.map(val => val.toFixed(4).padStart(10)).join(", ") + " ]\n";
+                });
+                matrixBox.innerText = matrixStr;
+                matrixBox.style.display = 'block';
+            } else {
+                matrixBox.style.display = 'none';
+            }
+        } else {
+            alert('Error processing image: ' + data.error);
+        }
+    })
+    .catch(err => {
+        alert('Network error occurred.');
+        console.error(err);
     });
-    
-    const j = await res.json();
-    if(!j.ok){
-      alert("Capture failed: " + (j.error || 'unknown'));
-      return;
-    }
-    
-    // set captured and processed images
-    document.getElementById(`captured-${cam_id}`).src = j.image;
-    document.getElementById(`fragment-${cam_id}`).src = j.processed;
-
-    const timeBox = document.getElementById(`proc-time-${cam_id}`);
-    if(timeBox && typeof j.process_time_ms === 'number'){
-      // Hiển thị thêm tên filter đã dùng
-      timeBox.textContent = `Process time: ${j.process_time_ms.toFixed(2)} ms (${j.step || stepValue})`;
-    }
-  }catch(err){
-    alert("Error: " + err);
-  }finally{
-    btn.disabled = false;
-  }
 }
 
-// --- UI helpers ---
-// Static inline SVGs for gray placeholders.
-const PLACEHOLDER_CAM = 'data:image/svg+xml;base64,' + btoa(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">`
-  + `<rect width="640" height="360" fill="#d3d7dd"/>`
-  + `<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"`
-  + ` font-family="Arial, sans-serif" font-size="32" fill="#666">No Cam</text>`
-  + `</svg>`
-);
+function rotateImage(camId) {
+    const imgElement = document.getElementById(`fragment-${camId}`);
+    const currentBase64 = imgElement.src;
+    if (!currentBase64 || !currentBase64.startsWith('data:image')) {
+        alert("Please capture an image first!");
+        return;
+    }
+    const originalTimeText = document.getElementById(`proc-time-${camId}`).innerText;
+    document.getElementById(`proc-time-${camId}`).innerText = "Rotating...";
 
-const PLACEHOLDER_IMG = 'data:image/svg+xml;base64,' + btoa(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">`
-  + `<rect width="640" height="360" fill="#e7eaef"/>`
-  + `<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"`
-  + ` font-family="Arial, sans-serif" font-size="28" fill="#777">No Image</text>`
-  + `</svg>`
-);
-
-function setPlaceholderCam(imgEl){
-  imgEl.src = PLACEHOLDER_CAM;
+    fetch('/rotate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: currentBase64 })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            imgElement.src = data.image;
+            document.getElementById(`proc-time-${camId}`).innerText = "Rotated successfully!";
+            setTimeout(() => { document.getElementById(`proc-time-${camId}`).innerText = originalTimeText; }, 2000);
+        } else {
+            alert('Error rotating image: ' + data.error);
+        }
+    }).catch(err => console.error(err));
 }
 
-function setPlaceholderImage(imgEl){
-  imgEl.src = PLACEHOLDER_IMG;
+// --- PLACEHOLDER LOGIC ---
+function initPlaceholders(camId = 1) {
+    const video = document.getElementById(`video-${camId}`);
+    if (video) { video.onerror = function() { handleBrokenStream(this); }; }
 }
 
-// Initialize placeholders on page load so UI never collapses or shows broken images.
-document.addEventListener('DOMContentLoaded', () => {
-  [1,2].forEach(id => {
-    const vid = document.getElementById(`video-${id}`);
-    if(vid){
-      setPlaceholderCam(vid);
+function handleBrokenStream(img) {
+    const streamPlaceholder = '/static/images/default-stream.gif';
+    if (img.src && !img.src.includes(streamPlaceholder)) {
+        img.removeAttribute('src'); 
+        img.src = streamPlaceholder; 
     }
-    const cap = document.getElementById(`captured-${id}`);
-    if(cap){
-      setPlaceholderImage(cap);
-    }
-    const frag = document.getElementById(`fragment-${id}`);
-    if(frag){
-      setPlaceholderImage(frag);
-    }
+}
+
+function revertToPlaceholders(camId) {
+    document.getElementById(`video-${camId}`).src = '/static/images/default-stream.gif';
+    document.getElementById(`captured-${camId}`).src = '/static/images/default-capture.png';
+    document.getElementById(`fragment-${camId}`).src = '/static/images/default-processed.png';
+    document.getElementById(`proc-time-${camId}`).innerText = 'Process time: -- ms';
+    const matrixBox = document.getElementById(`matrix-display-${camId}`);
+    if (matrixBox) matrixBox.style.display = 'none';
+}
+
+// --- PWA INSTALLATION LOGIC ---
+let deferredPrompt;
+const installBtn = document.getElementById('install-btn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.style.display = 'block';
+});
+
+installBtn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    installBtn.style.display = 'none';
+});
+
+window.addEventListener('appinstalled', () => {
+    installBtn.style.display = 'none';
+    deferredPrompt = null;
+});
+
+// --- PWA SERVICE WORKER REGISTRATION ---
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('Service Worker registered!'))
+      .catch(err => console.error('Service Worker failed: ', err));
   });
+}
+
+// Initialize Placeholders on load
+document.addEventListener('DOMContentLoaded', () => {
+    initPlaceholders(1);
 });
