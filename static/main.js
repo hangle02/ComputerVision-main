@@ -1,8 +1,6 @@
-// Hàm kết nối IP Camera
+// --- ORIGINAL APP LOGIC ---
 function setSource(camId) {
     const sourceUrl = document.getElementById(`src-${camId}`).value;
-    
-    // Gửi link IP Camera xuống cho Flask
     fetch('/set_source', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -11,7 +9,6 @@ function setSource(camId) {
     .then(response => response.json())
     .then(data => {
         if (data.ok) {
-            // Thêm time stamp (?t=...) để ép trình duyệt tải video mới, không dùng cache
             document.getElementById(`video-${camId}`).src = `/video_feed/${camId}?t=${new Date().getTime()}`;
         } else {
             alert('Error connecting to camera: ' + data.error);
@@ -20,7 +17,6 @@ function setSource(camId) {
     .catch(err => console.error('Connection error:', err));
 }
 
-// Hàm dừng Camera
 function stopSource(camId) {
     fetch('/set_source', {
         method: 'POST',
@@ -30,20 +26,13 @@ function stopSource(camId) {
     .then(response => response.json())
     .then(data => {
         if (data.ok) {
-            // Xóa src để dừng hiển thị video
-            document.getElementById(`video-${camId}`).removeAttribute('src');
+            revertToPlaceholders(camId);
         }
-    })
-    .catch(err => console.error(err));
+    }).catch(err => console.error(err));
 }
 
-// Hàm chụp và xử lý ảnh (Computer Vision + Linear Algebra)
 function captureAndProcess(camId, stepName) {
-    console.log(`Capturing from cam ${camId} with step: ${stepName}`);
-    
-    // Cập nhật nhãn (label) trên giao diện
     document.getElementById(`current-step-label`).innerText = stepName.toUpperCase();
-
     fetch('/capture', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -52,49 +41,38 @@ function captureAndProcess(camId, stepName) {
     .then(response => response.json())
     .then(data => {
         if (data.ok) {
-            // Hiển thị ảnh gốc và ảnh đã qua thuật toán
             document.getElementById(`captured-${camId}`).src = data.image;
             document.getElementById(`fragment-${camId}`).src = data.processed;
-            
-            // Hiển thị thời gian chạy
             document.getElementById(`proc-time-${camId}`).innerText = `Process time: ${data.process_time_ms} ms`;
             
-            // --- Hiển thị Ma trận Homography (nếu có) ---
             const matrixBox = document.getElementById(`matrix-display-${camId}`);
             if (data.results && data.results.homography_matrix) {
                 let matrixStr = "Homography Matrix H (3x3):\n\n";
                 data.results.homography_matrix.forEach(row => {
-                    // Format các con số cho thẳng hàng
                     matrixStr += "[ " + row.map(val => val.toFixed(4).padStart(10)).join(", ") + " ]\n";
                 });
                 matrixBox.innerText = matrixStr;
-                matrixBox.style.display = 'block'; // Hiện box lên
+                matrixBox.style.display = 'block';
             } else {
-                matrixBox.style.display = 'none';  // Ẩn box đi nếu bước này không có tính toán ma trận
+                matrixBox.style.display = 'none';
             }
-            
         } else {
             alert('Error processing image: ' + data.error);
-            console.error(data.error);
         }
     })
     .catch(err => {
-        alert('Network error occurred. Make sure the server is running.');
+        alert('Network error occurred.');
         console.error(err);
     });
 }
-// Hàm gọi API xoay ảnh
+
 function rotateImage(camId) {
     const imgElement = document.getElementById(`fragment-${camId}`);
     const currentBase64 = imgElement.src;
-
-    // Kiểm tra xem đã có ảnh chưa (tránh xoay khi màn hình trống)
     if (!currentBase64 || !currentBase64.startsWith('data:image')) {
         alert("Please capture an image first!");
         return;
     }
-
-    // Hiển thị trạng thái đang xoay
     const originalTimeText = document.getElementById(`proc-time-${camId}`).innerText;
     document.getElementById(`proc-time-${camId}`).innerText = "Rotating...";
 
@@ -106,20 +84,71 @@ function rotateImage(camId) {
     .then(response => response.json())
     .then(data => {
         if (data.ok) {
-            // Thay thế ảnh cũ bằng ảnh đã xoay
             imgElement.src = data.image;
             document.getElementById(`proc-time-${camId}`).innerText = "Rotated successfully!";
-            
-            // Trả lại text thời gian sau 2 giây
-            setTimeout(() => {
-                document.getElementById(`proc-time-${camId}`).innerText = originalTimeText;
-            }, 2000);
+            setTimeout(() => { document.getElementById(`proc-time-${camId}`).innerText = originalTimeText; }, 2000);
         } else {
             alert('Error rotating image: ' + data.error);
         }
-    })
-    .catch(err => {
-        console.error(err);
-        alert("Network error while rotating.");
-    });
+    }).catch(err => console.error(err));
 }
+
+// --- PLACEHOLDER LOGIC ---
+function initPlaceholders(camId = 1) {
+    const video = document.getElementById(`video-${camId}`);
+    if (video) { video.onerror = function() { handleBrokenStream(this); }; }
+}
+
+function handleBrokenStream(img) {
+    const streamPlaceholder = '/static/images/default-stream.gif';
+    if (img.src && !img.src.includes(streamPlaceholder)) {
+        img.removeAttribute('src'); 
+        img.src = streamPlaceholder; 
+    }
+}
+
+function revertToPlaceholders(camId) {
+    document.getElementById(`video-${camId}`).src = '/static/images/default-stream.gif';
+    document.getElementById(`captured-${camId}`).src = '/static/images/default-capture.png';
+    document.getElementById(`fragment-${camId}`).src = '/static/images/default-processed.png';
+    document.getElementById(`proc-time-${camId}`).innerText = 'Process time: -- ms';
+    const matrixBox = document.getElementById(`matrix-display-${camId}`);
+    if (matrixBox) matrixBox.style.display = 'none';
+}
+
+// --- PWA INSTALLATION LOGIC ---
+let deferredPrompt;
+const installBtn = document.getElementById('install-btn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.style.display = 'block';
+});
+
+installBtn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    installBtn.style.display = 'none';
+});
+
+window.addEventListener('appinstalled', () => {
+    installBtn.style.display = 'none';
+    deferredPrompt = null;
+});
+
+// --- PWA SERVICE WORKER REGISTRATION ---
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('Service Worker registered!'))
+      .catch(err => console.error('Service Worker failed: ', err));
+  });
+}
+
+// Initialize Placeholders on load
+document.addEventListener('DOMContentLoaded', () => {
+    initPlaceholders(1);
+});

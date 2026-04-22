@@ -5,6 +5,7 @@ import threading
 import time
 import base64
 import numpy as np
+from flask import send_from_directory
 
 # --- Import class xử lý ảnh từ file process.py ---
 from process import ImageProcessor 
@@ -152,6 +153,17 @@ def rotate():
         return jsonify({'ok': True, 'image': new_data_uri})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+# --- PWA ROUTES ---
+@app.route('/manifest.json')
+def serve_manifest():
+    return send_from_directory('static', 'manifest.json')
+
+@app.route('/sw.js')
+def serve_sw():
+    return send_from_directory('static', 'sw.js')
+
 
 if __name__ == '__main__':
     # Chạy Server Flask ở port 5006
