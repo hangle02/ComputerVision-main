@@ -4,14 +4,14 @@ import time
 
 class ImageProcessor:
     def __init__(self):
-        # Biến dùng cho tính năng Auto-Scan (Theo dõi chuyển động)
+        # Variables used for the Auto-Scan feature (Motion tracking)
         self.prev_corners = None
         self.stable_counter = 0
-        self.STABLE_THRESHOLD = 20  # Sai số pixel cho phép khi tay rung nhẹ
-        self.FRAMES_TO_LOCK = 3     # Số frame đứng im liên tiếp để chốt chụp
+        self.STABLE_THRESHOLD = 20  # Allowed pixel tolerance for slight hand shaking
+        self.FRAMES_TO_LOCK = 3     # Number of consecutive stable frames to lock the capture
 
     def order_points(self, pts):
-        """ Sắp xếp 4 điểm theo thứ tự: Trái-Trên, Phải-Trên, Phải-Dưới, Trái-Dưới """
+        """ Order 4 points in the sequence: Top-Left, Top-Right, Bottom-Right, Bottom-Left """
         rect = np.zeros((4, 2), dtype="float32")
         s = pts.sum(axis=1)
         rect[0] = pts[np.argmin(s)]
@@ -27,31 +27,31 @@ class ImageProcessor:
         results = {
             "status": "success", 
             "message": "Processed successfully",
-            "is_stable": False  # Cờ báo cho giao diện web tự động chụp
+            "is_stable": False  # Flag to signal the web interface to auto-capture
         }
         orig = frame.copy()
         
         # =========================================================
-        # GIAI ĐOẠN 1: TẨY CHỮ (MAGIC ERASER) & TÌM VIỀN THÔNG MINH
+        # STAGE 1: TEXT REMOVAL (MAGIC ERASER) & SMART EDGE DETECTION
         # =========================================================
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
-        # 1. Morphological Close (Kernel lớn): "Nuốt chửng" toàn bộ chữ viết đen 
-        # và dòng kẻ ngang, biến tờ giấy thành một khối trắng tinh mờ ảo.
+        # 1. Morphological Close (Large Kernel): "Swallows" all black text 
+        # and horizontal lines, turning the paper into a blurry white block.
         kernel_eraser = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))
         blank_paper = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel_eraser)
 
-        # 2. Làm mờ nhẹ để xóa nhiễu vân gỗ mặt bàn
+        # 2. Slight blur to remove wood grain noise from the table
         blurred = cv2.GaussianBlur(blank_paper, (5, 5), 0)
 
-       # 3. THEO ĐÚNG Ý TƯỞNG CỦA BẠN: ÉP THRESHOLD XUỐNG CỰC THẤP
-        # Bỏ Auto-Canny, fix cứng ngưỡng (20, 60) để Canny nhạy cảm hơn, 
-        # bắt được cả những ranh giới lờ mờ nhất giữa giấy trắng và bàn gỗ.
+        # 3. AS PER YOUR IDEA: FORCE THRESHOLD EXTREMELY LOW
+        # Discard Auto-Canny, hardcode threshold to (20, 60) to make Canny more sensitive, 
+        # capturing even the faintest boundaries between white paper and wooden table.
         edged = cv2.Canny(blurred, 20, 60)
 
-        # 4. "Đổ bê tông" hàn gắn các khoảng trống khổng lồ
-        # Ảnh của bạn nét đứt rất xa, nên ta kết hợp cả MORPH_CLOSE và DILATE 
-        # với kernel to (11x11) để ép các đường thẳng đứt quãng nối lại với nhau.
+        # 4. "Pour concrete" to bridge giant gaps
+        # Your image has widely disconnected lines, so we combine MORPH_CLOSE and DILATE 
+        # with a large kernel (11x11) to force broken lines to connect together.
         kernel_bridge = cv2.getStructuringElement(cv2.MORPH_RECT, (11, 11))
         edged = cv2.morphologyEx(edged, cv2.MORPH_CLOSE, kernel_bridge)
         edged = cv2.dilate(edged, kernel_bridge, iterations=1)
@@ -61,7 +61,7 @@ class ImageProcessor:
             return cv2.cvtColor(edged, cv2.COLOR_GRAY2BGR), results, process_time_ms
 
         # =========================================================
-        # GIAI ĐOẠN 2: TÌM CONTOURS & VƯỢT QUA GÁY LÒ XO
+        # STAGE 2: FIND CONTOURS & OVERCOME SPIRAL BINDING
         # =========================================================
         contours, _ = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key=cv2.contourArea, reverse=True)[:5]
@@ -70,20 +70,20 @@ class ImageProcessor:
         doc_cnt = None
 
         for c in contours:
-            # Bỏ qua các contour rác có diện tích quá nhỏ
+            # Ignore noise contours with an area that is too small
             if cv2.contourArea(c) < 0.05 * image_area:
                 continue
 
-            # Bao lồi (Convex Hull): Bọc màng nilon phẳng qua gáy lò xo nhấp nhô
+            # Convex Hull: Wrap a flat "plastic wrap" over the bumpy spiral binding
             hull = cv2.convexHull(c)
             peri = cv2.arcLength(hull, True)
             
-            # Thử nghiệm các mức nới lỏng để ép hình dạng về 4 đỉnh
+            # Experiment with loosening levels to force the shape into 4 vertices
             for eps in [0.02, 0.03, 0.04, 0.05, 0.06]:
                 approx = cv2.approxPolyDP(hull, eps * peri, True)
                 
                 if len(approx) == 4:
-                    # Đảm bảo tứ giác là hình lồi (loại bỏ lỗi móp méo do bóng đèn)
+                    # Ensure the quadrilateral is convex (remove distortion errors caused by lighting)
                     if cv2.isContourConvex(approx):
                         doc_cnt = approx
                         break 
@@ -92,15 +92,15 @@ class ImageProcessor:
                 break
 
         # =========================================================
-        # LOGIC THEO DÕI CHUYỂN ĐỘNG (AUTO-CAPTURE)
+        # MOTION TRACKING LOGIC (AUTO-CAPTURE)
         # =========================================================
-        box_color = (0, 0, 255) # Mặc định viền màu Đỏ (Đang dịch chuyển)
+        box_color = (0, 0, 255) # Default to Red border (Moving)
 
         if doc_cnt is not None:
             current_corners = self.order_points(doc_cnt.reshape(4, 2))
             
             if self.prev_corners is not None:
-                # Tính khoảng cách Euclid giữa tọa độ góc cũ và mới
+                # Calculate Euclidean distance between old and new corner coordinates
                 dist = np.max(np.linalg.norm(current_corners - self.prev_corners, axis=1))
                 if dist < self.STABLE_THRESHOLD:
                     self.stable_counter += 1
@@ -111,7 +111,7 @@ class ImageProcessor:
                 
             self.prev_corners = current_corners
             
-            # Nếu cầm tay đủ vững trong 3 frames -> Đổi viền Xanh Lá và bật cờ
+            # If the hand is steady enough for 3 frames -> Change border to Green and set flag
             if self.stable_counter >= self.FRAMES_TO_LOCK:
                 results["is_stable"] = True
                 box_color = (0, 255, 0)
@@ -126,7 +126,7 @@ class ImageProcessor:
             return orig, results, process_time_ms
 
         if step == 'contours':
-            # Vẽ viền thực tế (vàng) và vẽ 4 góc chốt hạ (Đỏ/Xanh)
+            # Draw the actual contour (Yellow) and draw 4 corner points (Red/Green)
             cv2.drawContours(orig, [c], -1, (0, 255, 255), 2)  
             cv2.drawContours(orig, [doc_cnt], -1, box_color, 3) 
             for point in doc_cnt:
@@ -136,7 +136,7 @@ class ImageProcessor:
             return orig, results, process_time_ms
 
         # =========================================================
-        # GIAI ĐOẠN 3: ĐẠI SỐ TUYẾN TÍNH (HOMOGRAPHY)
+        # STAGE 3: LINEAR ALGEBRA (HOMOGRAPHY)
         # =========================================================
         pts = doc_cnt.reshape(4, 2)
         rect = self.order_points(pts)
@@ -165,31 +165,25 @@ class ImageProcessor:
             return warped, results, process_time_ms
 
         # =========================================================
-        # GIAI ĐOẠN 4: LỌC NHIỄU & LÀM SẠCH VĂN BẢN (POST-PROCESSING)
+        # STAGE 4: BRIGHTEN & INCREASE SHARPNESS (SHARPENING)
         # =========================================================
-        warped_gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
         
-        # Denoising: Triệt tiêu các bóng râm gắt trước khi binarize
-        denoised = cv2.fastNlMeansDenoising(warped_gray, None, h=10, templateWindowSize=7, searchWindowSize=21)
-        
-        # Adaptive Threshold: Tẩy trắng nền giấy, xóa dòng kẻ vở (blockSize = 51)
-        scanned = cv2.adaptiveThreshold(
-            denoised, 
-            255, 
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-            cv2.THRESH_BINARY, 
-            51,   
-            15    
-        )
-        
-        # Xóa các chấm đen nhiễu hạt nhỏ lấm tấm
-        scanned = cv2.medianBlur(scanned, 3)
+        # 1. Brighten and increase contrast (As you did)
+        alpha = 1.2  
+        beta = 25     
+        scanned_bgr = cv2.convertScaleAbs(warped, alpha=alpha, beta=beta)
 
-        # Bóp vùng màu trắng lại để chữ viết tay màu đen hiển thị đậm đà hơn
-        kernel_text = np.ones((2, 2), np.uint8)
-        scanned = cv2.erode(scanned, kernel_text, iterations=1)
+        # 2. Sharpening Filter (Sharpening Kernel)
+        # Create a 3x3 matrix to amplify color differences at the edge regions
+        sharpen_kernel = np.array([
+            [ 0, -1,  0],
+            [-1,  5, -1],
+            [ 0, -1,  0]
+        ])
+        
+        # Apply Convolution of the filter matrix to the image
+        scanned_bgr = cv2.filter2D(scanned_bgr, -1, sharpen_kernel)
 
         process_time_ms = (time.time() - start_time) * 1000
-        scanned_bgr = cv2.cvtColor(scanned, cv2.COLOR_GRAY2BGR)
         
         return scanned_bgr, results, process_time_ms
