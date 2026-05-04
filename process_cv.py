@@ -4,13 +4,14 @@ import time
 
 class ImageProcessor:
     def __init__(self):
-        # THÊM CÁC BIẾN ĐỂ TRACKING CHUYỂN ĐỘNG
+        # Biến dùng cho tính năng Auto-Scan (Theo dõi chuyển động)
         self.prev_corners = None
         self.stable_counter = 0
-        self.STABLE_THRESHOLD = 20 # Sai số pixel cho phép (giấy xê dịch nhẹ)
-        self.FRAMES_TO_LOCK = 3    # Số khung hình đứng im liên tiếp để chốt chụp
+        self.STABLE_THRESHOLD = 20  # Sai số pixel cho phép khi tay rung nhẹ
+        self.FRAMES_TO_LOCK = 3     # Số frame đứng im liên tiếp để chốt chụp
 
     def order_points(self, pts):
+        """ Sắp xếp 4 điểm theo thứ tự: Trái-Trên, Phải-Trên, Phải-Dưới, Trái-Dưới """
         rect = np.zeros((4, 2), dtype="float32")
         s = pts.sum(axis=1)
         rect[0] = pts[np.argmin(s)]
@@ -26,83 +27,91 @@ class ImageProcessor:
         results = {
             "status": "success", 
             "message": "Processed successfully",
-            "is_stable": False # Cờ báo hiệu cho giao diện Web biết để tự chụp
+            "is_stable": False  # Cờ báo cho giao diện web tự động chụp
         }
         orig = frame.copy()
         
         # =========================================================
-        # GIAI ĐOẠN 1: MÔ PHỎNG AI MASKING CỦA FAIRSCAN
-        # Bỏ hoàn toàn Canny. Tạo một khối Mask (Mặt nạ) trắng đen.
+        # GIAI ĐOẠN 1: TẨY CHỮ (MAGIC ERASER) & TÌM VIỀN THÔNG MINH
         # =========================================================
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
-        # 1. Làm mờ cực mạnh (kernel 15x15) để nhòe chữ viết và vân gỗ
-        blurred = cv2.GaussianBlur(gray, (29, 29), 0)
+        # 1. Morphological Close (Kernel lớn): "Nuốt chửng" toàn bộ chữ viết đen 
+        # và dòng kẻ ngang, biến tờ giấy thành một khối trắng tinh mờ ảo.
+        kernel_eraser = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))
+        blank_paper = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel_eraser)
 
-        # 2. Tách nền bằng Otsu Thresholding (Tự động tìm ngưỡng sáng tốt nhất)
-        _, mask = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        # 2. Làm mờ nhẹ để xóa nhiễu vân gỗ mặt bàn
+        blurred = cv2.GaussianBlur(blank_paper, (5, 5), 0)
 
-        # 3. Phép đóng (Morphological Closing) - Hàn gắn các vết rách trên mask
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (11, 11))
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+       # 3. THEO ĐÚNG Ý TƯỞNG CỦA BẠN: ÉP THRESHOLD XUỐNG CỰC THẤP
+        # Bỏ Auto-Canny, fix cứng ngưỡng (20, 60) để Canny nhạy cảm hơn, 
+        # bắt được cả những ranh giới lờ mờ nhất giữa giấy trắng và bàn gỗ.
+        edged = cv2.Canny(blurred, 20, 60)
 
-        # Đôi khi Otsu bị ngược (Giấy đen, bàn trắng). Check 4 góc để đảo lại nếu cần:
-        corners = [mask[0,0], mask[-1,0], mask[0,-1], mask[-1,-1]]
-        if sum(1 for c in corners if c > 127) >= 2:
-            mask = cv2.bitwise_not(mask)
+        # 4. "Đổ bê tông" hàn gắn các khoảng trống khổng lồ
+        # Ảnh của bạn nét đứt rất xa, nên ta kết hợp cả MORPH_CLOSE và DILATE 
+        # với kernel to (11x11) để ép các đường thẳng đứt quãng nối lại với nhau.
+        kernel_bridge = cv2.getStructuringElement(cv2.MORPH_RECT, (11, 11))
+        edged = cv2.morphologyEx(edged, cv2.MORPH_CLOSE, kernel_bridge)
+        edged = cv2.dilate(edged, kernel_bridge, iterations=1)
 
-        # Nếu người dùng chọn xem bước 1, trả về cái Mask này (ảnh trắng đen)
         if step == 'edges':
             process_time_ms = (time.time() - start_time) * 1000
-            return cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR), results, process_time_ms
+            return cv2.cvtColor(edged, cv2.COLOR_GRAY2BGR), results, process_time_ms
 
         # =========================================================
         # GIAI ĐOẠN 2: TÌM CONTOURS & VƯỢT QUA GÁY LÒ XO
         # =========================================================
-        contours, _ = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key=cv2.contourArea, reverse=True)[:5]
 
         image_area = orig.shape[0] * orig.shape[1]
         doc_cnt = None
 
         for c in contours:
-            if cv2.contourArea(c) < 0.1 * image_area:
+            # Bỏ qua các contour rác có diện tích quá nhỏ
+            if cv2.contourArea(c) < 0.05 * image_area:
                 continue
 
-            # CHIẾN THUẬT FAIRSCAN: Bọc "Bao lồi" (Convex Hull) quanh contour
-            # Điều này giúp lờ đi hoàn toàn các vết lõm của gáy lò xo!
+            # Bao lồi (Convex Hull): Bọc màng nilon phẳng qua gáy lò xo nhấp nhô
             hull = cv2.convexHull(c)
-
             peri = cv2.arcLength(hull, True)
-            # Áp dụng approxPolyDP trên cái Bao Lồi phẳng phiu đó
+            
+            # Thử nghiệm các mức nới lỏng để ép hình dạng về 4 đỉnh
             for eps in [0.02, 0.03, 0.04, 0.05, 0.06]:
                 approx = cv2.approxPolyDP(hull, eps * peri, True)
+                
                 if len(approx) == 4:
-                    doc_cnt = approx
-                    break 
+                    # Đảm bảo tứ giác là hình lồi (loại bỏ lỗi móp méo do bóng đèn)
+                    if cv2.isContourConvex(approx):
+                        doc_cnt = approx
+                        break 
             
             if doc_cnt is not None:
                 break
-        # --- LOGIC TRACKING CHUYỂN ĐỘNG (THÊM VÀO ĐÂY) ---
-        box_color = (0, 0, 255) # Mặc định viền màu ĐỎ (đang di chuyển)
+
+        # =========================================================
+        # LOGIC THEO DÕI CHUYỂN ĐỘNG (AUTO-CAPTURE)
+        # =========================================================
+        box_color = (0, 0, 255) # Mặc định viền màu Đỏ (Đang dịch chuyển)
 
         if doc_cnt is not None:
-            # Lấy 4 điểm và sắp xếp chuẩn để so sánh không bị lộn xộn
             current_corners = self.order_points(doc_cnt.reshape(4, 2))
             
             if self.prev_corners is not None:
-                # Tính khoảng cách Euclid lớn nhất giữa 4 góc cũ và mới
+                # Tính khoảng cách Euclid giữa tọa độ góc cũ và mới
                 dist = np.max(np.linalg.norm(current_corners - self.prev_corners, axis=1))
                 if dist < self.STABLE_THRESHOLD:
                     self.stable_counter += 1
                 else:
-                    self.stable_counter = 0 # Bị rung tay -> Reset đếm lại
+                    self.stable_counter = 0 
             else:
                 self.stable_counter = 0
                 
             self.prev_corners = current_corners
             
-            # Nếu đứng im đủ lâu -> Bật cờ Stable và đổi viền XANH
+            # Nếu cầm tay đủ vững trong 3 frames -> Đổi viền Xanh Lá và bật cờ
             if self.stable_counter >= self.FRAMES_TO_LOCK:
                 results["is_stable"] = True
                 box_color = (0, 255, 0)
@@ -117,17 +126,17 @@ class ImageProcessor:
             return orig, results, process_time_ms
 
         if step == 'contours':
-            # Vẽ Contour gốc (vàng) và Bao lồi (xanh lá) để thầy cô thấy độ ảo diệu
-            cv2.drawContours(orig, [c], -1, (0, 255, 255), 2)  # Vàng: Viền thật
-            cv2.drawContours(orig, [doc_cnt], -1, (0, 255, 0), 3) # Xanh: Khung 4 góc
+            # Vẽ viền thực tế (vàng) và vẽ 4 góc chốt hạ (Đỏ/Xanh)
+            cv2.drawContours(orig, [c], -1, (0, 255, 255), 2)  
+            cv2.drawContours(orig, [doc_cnt], -1, box_color, 3) 
             for point in doc_cnt:
-                cv2.circle(orig, tuple(point[0]), 8, (255, 0, 0), -1)
+                cv2.circle(orig, tuple(point[0]), 8, box_color, -1)
                 
             process_time_ms = (time.time() - start_time) * 1000
             return orig, results, process_time_ms
 
         # =========================================================
-        # GIAI ĐOẠN 3: HOMOGRAPHY (Như cũ)
+        # GIAI ĐOẠN 3: ĐẠI SỐ TUYẾN TÍNH (HOMOGRAPHY)
         # =========================================================
         pts = doc_cnt.reshape(4, 2)
         rect = self.order_points(pts)
@@ -156,44 +165,30 @@ class ImageProcessor:
             return warped, results, process_time_ms
 
         # =========================================================
-        # GIAI ĐOẠN 3: LỌC NHIỄU VÀ LÀM SẠCH VĂN BẢN (HẬU KỲ)
-        # Bắt đầu xử lý trên biến 'warped' (mảnh giấy đã được bẻ phẳng)
+        # GIAI ĐOẠN 4: LỌC NHIỄU & LÀM SẠCH VĂN BẢN (POST-PROCESSING)
         # =========================================================
-        
-        # 1. Chuyển mảnh giấy sang ảnh xám
         warped_gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
         
-        # 2. Khử nhiễu nền nâng cao (Fast Non-Local Means Denoising)
-        # Bước này cực kỳ xịn để làm mờ các vân giấy và dòng kẻ mờ 
-        # TRƯỚC KHI cắt ngưỡng. (Tùy chọn: nếu app chạy chậm thì có thể bỏ bước này)
+        # Denoising: Triệt tiêu các bóng râm gắt trước khi binarize
         denoised = cv2.fastNlMeansDenoising(warped_gray, None, h=10, templateWindowSize=7, searchWindowSize=21)
         
-        # 3. Tẩy trắng nền, giữ nét chữ (Adaptive Thresholding)
-        # BÍ QUYẾT: 
-        # - Block Size = 51 (Số cực lớn, bắt buộc là số lẻ). Nó ép thuật toán lờ đi 
-        #   các dòng kẻ ngang và nhìn vào tổng thể ánh sáng cả trang giấy.
-        # - C = 15 (Hằng số trừ). Kéo các vệt xám mờ (vân giấy) thành màu trắng tinh.
+        # Adaptive Threshold: Tẩy trắng nền giấy, xóa dòng kẻ vở (blockSize = 51)
         scanned = cv2.adaptiveThreshold(
             denoised, 
             255, 
             cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
             cv2.THRESH_BINARY, 
-            49,   # Tăng thông số này lên 71, 91 nếu giấy vẫn còn dòng kẻ
-            9    # Tăng thông số này lên 20 nếu ảnh vẫn còn lốm đốm xám
+            51,   
+            15    
         )
         
-        # 4. Xóa nhiễu hạt (Salt & Pepper Noise)
-        # Các lốm đốm đen li ti còn sót lại sẽ bị Median Blur "nhai" sạch.
-        # Dùng kernel 3x3 để không làm nhòe chữ viết tay.
+        # Xóa các chấm đen nhiễu hạt nhỏ lấm tấm
         scanned = cv2.medianBlur(scanned, 3)
 
-        # 5. Phục hồi độ đậm của nét chữ (Morphology Erode)
-        # Vì chữ viết tay thường bị mỏng đi sau khi Threshold, ta dùng Erode 
-        # để "bóp" vùng màu trắng lại, khiến vùng màu đen (chữ) đậm và rõ ràng hơn.
+        # Bóp vùng màu trắng lại để chữ viết tay màu đen hiển thị đậm đà hơn
         kernel_text = np.ones((2, 2), np.uint8)
         scanned = cv2.erode(scanned, kernel_text, iterations=1)
 
-        # Trả về kết quả
         process_time_ms = (time.time() - start_time) * 1000
         scanned_bgr = cv2.cvtColor(scanned, cv2.COLOR_GRAY2BGR)
         
