@@ -3,7 +3,7 @@ import os
 from process_cv import ImageProcessor
 
 def main():
-    input_file = r'C:\ComputerVision-main\CapturedImage\input.jpg'
+    input_file = r'C:\ComputerVision-main\CapturedImage\input_2.jpg'
     
     # 1. Kiểm tra xem file ảnh có tồn tại không
     if not os.path.exists(input_file):
