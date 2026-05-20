@@ -2,64 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>SmartDoc Scanner - CV & Linear Algebra Project</title>
+  <title>SmartDoc Scanner</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="/static/style.css">
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; color: #333; }
     h1 { text-align: center; color: #2c3e50; }
-    h2 { text-align: center; color: #7f8c8d; font-size: 1.2em; font-weight: 400; margin-bottom: 30px; }
-    
-    .matrix-box {
-      background: #2c3e50;
-      color: #00ff00;
-      font-family: monospace;
-      padding: 15px;
-      border-radius: 8px;
-      margin-top: 15px;
-      display: none;
-      white-space: pre-wrap;
-      font-size: 14px;
-    }
-    
-    .step-controls {
-      display: flex;
-      justify-content: center;
-      gap: 15px;
-      margin-top: 20px;
-      flex-wrap: wrap;
-    }
-    
-    .step-btn {
-      padding: 10px 20px;
-      font-size: 16px;
-      cursor: pointer;
-      border: none;
-      border-radius: 5px;
-      background-color: #3498db;
-      color: white;
-      transition: 0.3s;
-    }
-    
+    .matrix-box { background: #2c3e50; color: #00ff00; font-family: monospace; padding: 15px; border-radius: 8px; margin-top: 15px; display: none; white-space: pre-wrap; font-size: 14px; }
+    .step-controls { display: flex; justify-content: center; gap: 15px; margin-top: 20px; flex-wrap: wrap; }
+    .step-btn { padding: 10px 20px; font-size: 16px; cursor: pointer; border: none; border-radius: 5px; background-color: #3498db; color: white; transition: 0.3s; }
     .step-btn:hover { background-color: #2980b9; }
-    
-    /* Nút xoay ảnh nổi bật hơn */
-    .rotate-btn {
-      padding: 5px 15px; 
-      cursor: pointer; 
-      background-color: #f39c12; 
-      color: white; 
-      border: none; 
-      border-radius: 4px; 
-      font-weight: bold;
-      transition: 0.2s;
-    }
+    .rotate-btn { padding: 5px 15px; cursor: pointer; background-color: #f39c12; color: white; border: none; border-radius: 4px; font-weight: bold; transition: 0.2s; }
     .rotate-btn:hover { background-color: #d68910; }
   </style>
 </head>
 <body>
   <h1>SmartDoc: Document Scanner</h1>
-  <h2>Computer Vision & Linear Algebra (Homography) Pipeline</h2>
   
   <div class="container" style="display: flex; justify-content: center;">
     <div class="cam-col" id="col-1" style="max-width: 800px; width: 100%;">
@@ -90,19 +48,44 @@
         </div>
 
         <div class="fragment-box" style="flex: 1; position: relative;">
-          
           <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e74c3c; padding-bottom: 5px;">
               <h3 style="margin: 0;">Processed Result (<span id="current-step-label">None</span>)</h3>
-              
-              <button class="rotate-btn" onclick="rotateImage(1)">
-                  ↻ Rotate 90°
-              </button>
+              <button class="rotate-btn" onclick="rotateImage(1)">↻ Rotate 90°</button>
           </div>
-          
           <img id="fragment-1" src="" alt="Processed Output" style="width: 100%; border: 1px solid #ddd; margin-top: 10px;" />
           <div class="process-meta" id="proc-time-1" style="margin-top: 10px; font-weight: bold;">Process time: -- ms</div>
-          
           <div id="matrix-display-1" class="matrix-box"></div>
+        </div>
+      </div>
+
+      <div id="all-steps-grid-1" style="display: none; margin-top: 40px; border-top: 2px dashed #ccc; padding-top: 20px;">
+        <h2 style="text-align: center; color: #2c3e50; margin-bottom: 20px;">Pipeline Multi-Stage Breakdown</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+          
+          <div class="fragment-box">
+            <h3 style="border-bottom: 2px solid #3498db; padding-bottom: 5px;">Stage 1: Edge Detection</h3>
+            <img id="step-edges-1" src="" style="width: 100%; border: 1px solid #ddd; margin-top: 5px;" />
+            <div class="process-meta" id="time-edges-1" style="font-weight: bold; margin-top: 5px;">Time: -- ms</div>
+          </div>
+
+          <div class="fragment-box">
+            <h3 style="border-bottom: 2px solid #3498db; padding-bottom: 5px;">Stage 2: Document Contours</h3>
+            <img id="step-contours-1" src="" style="width: 100%; border: 1px solid #ddd; margin-top: 5px;" />
+            <div class="process-meta" id="time-contours-1" style="font-weight: bold; margin-top: 5px;">Time: -- ms</div>
+          </div>
+
+          <div class="fragment-box">
+            <h3 style="border-bottom: 2px solid #3498db; padding-bottom: 5px;">Stage 3: Perspective Warp</h3>
+            <img id="step-warp-1" src="" style="width: 100%; border: 1px solid #ddd; margin-top: 5px;" />
+            <div class="process-meta" id="time-warp-1" style="font-weight: bold; margin-top: 5px;">Time: -- ms</div>
+          </div>
+
+          <div class="fragment-box">
+            <h3 style="border-bottom: 2px solid #27ae60; padding-bottom: 5px;">Stage 4: Enhanced Scan (Final)</h3>
+            <img id="step-all-1" src="" style="width: 100%; border: 1px solid #ddd; margin-top: 5px;" />
+            <div class="process-meta" id="time-all-1" style="font-weight: bold; margin-top: 5px;">Time: -- ms</div>
+          </div>
+
         </div>
       </div>
       

@@ -19,7 +19,8 @@ h1{
   gap: 16px;
   align-items: start;
 }
-/* each column */
+
+/* Container cho mỗi Camera */
 .cam-col{
   background: var(--card-bg);
   border-radius: 8px;
@@ -50,36 +51,21 @@ h1{
 .controls button.stop{
   background:#d9534f;
 }
+
+/* KHU VỰC HIỂN THỊ CAMERA LIVE */
 .video-box{
   position: relative;
   margin-bottom:8px;
 }
 .video-box img{
-  width:100%;
-  height:320px;
-  object-fit:cover;
-  border-radius:6px;
-  background:#222;
+  width: 100%;
+  height: 480px;         /* Tăng height một chút để hiện cam dọc đẹp hơn */
+  object-fit: contain;   /* FIX: Ép hiện toàn bộ ảnh, không bị cắt xén */
+  border-radius: 6px;
+  background: #111;
 }
-.capture-btn{
-  position:absolute;
-  right:12px;
-  bottom:12px;
-  background: rgba(255,255,255,0.9);
-  color:#111;
-  border-radius:50%;
-  width:44px;
-  height:44px;
-  border:2px solid #eee;
-  font-weight:bold;
-  cursor:pointer;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:20px;
-  line-height:1;
-}
+
+/* KHU VỰC ẢNH SAU KHI CHỤP VÀ XỬ LÝ */
 .image-box, .fragment-box{
   margin-top:8px;
   background:white;
@@ -90,7 +76,7 @@ h1{
 .image-box img, .fragment-box img{
   width:100%;
   height:auto;
-  max-height:240px;
+  max-height:400px;
   object-fit:contain;
   display:block;
   background:#f0f0f0;

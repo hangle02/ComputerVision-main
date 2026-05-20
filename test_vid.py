@@ -1,6 +1,6 @@
 import cv2
 import time
-from process import ImageProcessor 
+from process_cv import ImageProcessor 
 
 def test_tracking_only(video_path):
     processor = ImageProcessor()
